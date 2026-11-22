@@ -13,7 +13,7 @@ A chatbot in Claude Code that answers replenishment staff's questions about GWR 
 - **Code meanings** come from the GWR docs. Warnings show blocking or not and what to do; statuses show their names; undocumented codes say "not described in the documentation".
 - **Configurable GWR address:** one environment variable, `GWR_API_BASE_URL`.
 - **Guardrails:** staff can't run commands, read or edit files, or use the web. There are no permission prompts. For anything not about GWR, the bot politely says it only answers GWR questions.
-- **Tests:** 14 unit tests (`mvn package`). Phase 5 checks passed on 2026-11-22 (see `PLAN.md`).
+- **Tests:** 14 unit tests (run by the build, see Build). Phase 5 checks passed on 2026-11-22 (see `PLAN.md`).
 
 ## How to start
 1. **GWR test environment:** copy `gwr-api.war` and `gwr-docs.war` into `<tomcat>\webapps\` (Tomcat 10.1, Java 17+), then run `<tomcat>\bin\startup.bat`. Check that `http://localhost:8080/gwr-api/` and `http://localhost:8080/gwr-docs/` open.
