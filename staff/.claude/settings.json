@@ -1,0 +1,30 @@
+{
+  "enabledMcpjsonServers": ["gwr"],
+  "outputStyle": "GWR staff",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "disableBypassPermissionsMode": "disable",
+    "allow": [
+      "mcp__gwr__get_order_proposal",
+      "mcp__gwr__get_site_articles",
+      "mcp__gwr__list_order_proposals",
+      "mcp__gwr__get_supplier_delivery_schedule",
+      "mcp__gwr__get_truck_capacity",
+      "mcp__gwr__list_supply_sectors",
+      "mcp__gwr__list_supply_sector_links"
+    ],
+    "deny": [
+      "Bash",
+      "PowerShell",
+      "Edit",
+      "Write",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Agent",
+      "mcp__claude_ai_*"
+    ]
+  }
+}

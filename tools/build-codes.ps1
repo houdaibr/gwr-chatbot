@@ -1,0 +1,111 @@
+# Builds src/main/resources/codes.md once from the GWR user documentation (gwr-docs).
+# Developer tool, not part of the bot. Re-run only when the docs change, then rebuild the jar.
+# Usage: powershell -ExecutionPolicy Bypass -File tools\build-codes.ps1 [-DocsUrl http://localhost:8080/gwr-docs/]
+param([string]$DocsUrl = "http://localhost:8080/gwr-docs/")
+
+$ErrorActionPreference = "Stop"
+$out = Join-Path $PSScriptRoot "../src/main/resources/codes.md"   # forward slashes: also works with pwsh on Mac/Linux
+
+function Get-Page([string]$page) {
+    $r = Invoke-WebRequest ($DocsUrl + $page) -UseBasicParsing
+    [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())
+}
+
+# Page file name (e.g. 15799.html) by its exact title in the docs index, so changed page ids do not matter
+$index = Get-Page ""
+function Find-Page([string]$title) {
+    $m = [regex]::Match($index, '<a[^>]*href="([^"]+)"[^>]*>\s*' + [regex]::Escape($title) + '\s*</a>')
+    if (-not $m.Success) { throw "Page '$title' not found in $DocsUrl" }
+    $m.Groups[1].Value
+}
+
+# HTML fragment -> one line of plain text, safe for a markdown table cell
+function To-Text([string]$html) {
+    $t = $html -replace '<[^>]+>', ' '
+    $t = [System.Net.WebUtility]::HtmlDecode($t) -replace '\s+', ' '
+    $t.Trim().Replace('|', '/')
+}
+
+# Text of one <h5> section inside a warning block, as a list of paragraphs / list items
+function Get-Section([string]$block, [string]$heading) {
+    $m = [regex]::Match($block, '<h5>' + $heading + '</h5>([\s\S]*?)(?=<h5>|$)')
+    if (-not $m.Success) { return @() }
+    [regex]::Matches($m.Groups[1].Value, '<(p|li)>([\s\S]*?)</\1>') |
+        ForEach-Object { To-Text $_.Groups[2].Value } |
+        Where-Object { $_ -ne '' -and $_ -notmatch '^<?/?section' }
+}
+
+# Warning pages ("Order line warnings" = table 1702, "Header warnings" = table 1745)
+function Get-Warnings([string]$title, [string]$table) {
+    $html = Get-Page (Find-Page $title)
+    $page = Find-Page $title
+    $rows = @()
+    foreach ($block in ($html -split '<section class="block">' | Select-Object -Skip 1)) {
+        $h = [regex]::Match($block, '<h3>\s*(\S+) warning:\s*([\s\S]*?)</h3>')
+        # the code is the entry under "Related parameters" (the table name is not always a link)
+        $e = [regex]::Match($block, '<h5>Related parameters</h5>[\s\S]*?table ' + $table + '(</a>)?\s*<strong>entry (\d+)</strong>')
+        if (-not $h.Success -or -not $e.Success) { Write-Warning "$title`: block without warning name or entry skipped"; continue }
+
+        $trigger = @(Get-Section $block 'Trigger')
+        $first = if ($trigger.Count) { $trigger[0] } else { '' }
+        # some header warnings (CCMax, CCMin, CCMul) are blocking or not depending on a parameter table
+        $cfg = [regex]::Match((To-Text $block), '(?i)blocking or not depending on the numeric value (\d+) of entry (\d+) of table (\d+)')
+        $blocking = if ($cfg.Success) { "depends on configuration (table $($cfg.Groups[3].Value) entry $($cfg.Groups[2].Value) NV$($cfg.Groups[1].Value))" }
+                    elseif ($first -match '(?i)non-blocking|information purpose') { 'information only' }
+                    elseif ($first -match '(?i)blocking warning') { 'blocking' }
+                    else { 'not stated in the documentation' }
+        # Meaning: the trigger without the blocking/information sentence; a sentence ending with ':' keeps its list
+        $meaning = ($first -replace '(?i)This (warning )?is (a |for )?(non-)?(blocking warning|information purposes?)\.\s*', '').Trim()
+        if ($meaning.EndsWith(':')) { $meaning = ($trigger | Select-Object -First 4) -join ' ' -replace '(?i)This (warning )?is (a |for )?(non-)?(blocking warning|information purposes?)\.\s*', '' }
+        $actions = @(Get-Section $block 'Possible actions?') -join '; '
+        if (-not $actions) { $actions = 'not stated in the documentation' }
+
+        $rows += [pscustomobject]@{
+            Code = [int]$e.Groups[2].Value; Short = $h.Groups[1].Value; Name = (To-Text $h.Groups[2].Value)
+            Meaning = $meaning; Blocking = $blocking; Actions = $actions; Source = $page
+        }
+    }
+    $rows | Sort-Object Code
+}
+
+# Simple entry tables ("Table 1704 - Order status", "Table 955 - Article status")
+function Get-Entries([string]$title) {
+    $page = Find-Page $title
+    $html = Get-Page $page
+    # the entries are in the table after "Entry list" (the first table on the page is "Table information")
+    $body = [regex]::Match($html, 'Entry list[\s\S]*?<tbody>([\s\S]*?)</tbody>').Groups[1].Value
+    foreach ($tr in [regex]::Matches($body, '<tr>([\s\S]*?)</tr>')) {
+        $td = [regex]::Matches($tr.Groups[1].Value, '<td>([\s\S]*?)</td>')
+        [pscustomobject]@{ Code = [int](To-Text $td[0].Groups[1].Value); Name = (To-Text $td[1].Groups[1].Value); Source = $page }
+    }
+}
+
+$md = New-Object System.Text.StringBuilder
+[void]$md.AppendLine("# GWR codes")
+[void]$md.AppendLine()
+[void]$md.AppendLine("Generated by tools/build-codes.ps1 from $DocsUrl on $(Get-Date -Format yyyy-MM-dd). Do not edit by hand.")
+
+foreach ($w in @(@{ Title = 'Order line warnings'; Table = '1702' }, @{ Title = 'Header warnings'; Table = '1745' })) {
+    $rows = Get-Warnings $w.Title $w.Table
+    [void]$md.AppendLine()
+    [void]$md.AppendLine("## Table $($w.Table) - $($w.Title)")
+    [void]$md.AppendLine()
+    [void]$md.AppendLine("| Code | Short | Name | Meaning | Blocking | What to do | Source |")
+    [void]$md.AppendLine("|---|---|---|---|---|---|---|")
+    foreach ($r in $rows) {
+        [void]$md.AppendLine("| $($r.Code) | $($r.Short) | $($r.Name) | $($r.Meaning) | $($r.Blocking) | $($r.Actions) | $($r.Source) |")
+    }
+}
+
+foreach ($t in @('Table 1704 - Order status', 'Table 955 - Article status')) {
+    [void]$md.AppendLine()
+    [void]$md.AppendLine("## $t")
+    [void]$md.AppendLine()
+    [void]$md.AppendLine("| Code | Name | Source |")
+    [void]$md.AppendLine("|---|---|---|")
+    foreach ($r in Get-Entries $t) { [void]$md.AppendLine("| $($r.Code) | $($r.Name) | $($r.Source) |") }
+}
+
+New-Item -ItemType Directory -Force (Split-Path $out) | Out-Null
+[IO.File]::WriteAllText($out, $md.ToString(), (New-Object Text.UTF8Encoding $false))
+Write-Host "Written: $((Resolve-Path $out).Path)"

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gwr": {
+      "type": "stdio",
+      "command": "java",
+      "args": ["-jar", "gwr-mcp-server.jar"],
+      "env": {
+        "GWR_API_BASE_URL": "${GWR_API_BASE_URL}"
+      }
+    }
+  }
+}
