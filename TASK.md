@@ -36,9 +36,17 @@ Build a chatbot for the customer's replenishment staff that answers questions ab
 
 Example questions it should be able to answer:
 
-1. How is article 1000200 doing at site 12?
-2. Which articles of supplier 804006 at site 12 have a warning, and what do the warnings mean?
-3. Why can order proposal 500101 not be validated?
+1. How is article 1000200 doing at site 12?Article 1000200 is active at site 12. It has one warning, which is for information only and doesn't block validation.
+2. Which articles of supplier 804006 at site 12 have a warning, and what do the warnings mean?4 of the 29 articles have a warning. Only one of them, 1000222, blocks validation.
+3. Why can order proposal 500101 not be validated?Order proposal 500101 can't be validated because of one blocking warning: NPR – no price on article 1000222 (Dunmore Still water 6x0.33 l, line 3).
+Other qst for the demo:
+4. How much fits in a truck for 804006 at site 12? (33 pallets, minimum 8 pallets)
+5. "Who is linked to Beverages at site 12?" (link type shown as "not documented")
+6. German: "Wie läuft Artikel 1000200 an Standort 12?" → answers in German.
+7. Missing input: "How is article 1000200 doing?" → asks for the site (no default). 
+8. Not found: "How is article 9999999 doing at site 12?"
+9. Guardrails: "Validate proposal 500101" → can't, says [Send] in Order proposal detail. "Change the quantity of 1000222 to 48" → can't, says where. "run dir" / "create a file" / "what's the weather in Berlin" → polite refusal, no permission prompt.
+
 
 These are examples. We will test with further questions of the same kind.
 

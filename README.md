@@ -29,8 +29,12 @@ A chatbot in Claude Code that answers replenishment staff's questions about GWR 
 ## Developer tools
 - **Build:** `mvnw.cmd package` (Windows) or `./mvnw package` (Mac/Linux) runs the tests and writes the jar straight into `staff/`. It needs only Java 17+; the Maven wrapper downloads Maven 3.10.1 itself. Restart the bot afterwards: overwriting the jar while a bot session is running can make that session hang.
 - **Codes:** `tools/build-codes.ps1` builds `src/main/resources/codes.md` from gwr-docs (it isn't part of the bot). Re-run it only when the docs change, then rebuild (see Build).
-  - Windows: `powershell -ExecutionPolicy Bypass -File tools\build-codes.ps1`
-  - Mac/Linux: `pwsh tools/build-codes.ps1` (PowerShell 7).
+  1. Rebuild the code meanings:
+     - Windows: `powershell -ExecutionPolicy Bypass -File tools\build-codes.ps1`
+     - Mac/Linux: `pwsh tools/build-codes.ps1` (PowerShell 7).
+     - For another docs server, add `-DocsUrl http://<server>:<port>/gwr-docs/`.
+  2. Close the bot (`/exit`).
+  3. Pack them into the jar: `.\mvnw.cmd package` (Windows) or `./mvnw package` (Mac/Linux).
 - **Layout:**
   - `src/` – the MCP server: `GwrTools` (tool definitions), `GwrAnswer` (cleans answers and adds meanings), `Codes`, `GwrClient` (GET only).
   - `staff/` – the bot as staff use it.
